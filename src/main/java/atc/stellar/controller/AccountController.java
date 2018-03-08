@@ -1,5 +1,6 @@
 package atc.stellar.controller;
 
+import atc.stellar.model.Account;
 import atc.stellar.model.KeyData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,8 @@ import org.stellar.sdk.responses.AccountResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 @RestController
@@ -23,7 +26,7 @@ public class AccountController
 {
     private static final Logger logger = LoggerFactory.getLogger( AccountController.class );
 
-    @RequestMapping ( value = "/", method = RequestMethod.POST )
+    @RequestMapping ( method = RequestMethod.POST )
     public String createAccount ( @RequestBody final KeyData keyData ) throws IOException
     {
         final KeyPair pair = KeyPair.fromAccountId( keyData.getAccountId() );
@@ -49,22 +52,34 @@ public class AccountController
 
 
     @RequestMapping ( value = { "{accountId}" }, method = RequestMethod.GET )
-    public String getAccount ( @PathVariable final String accountId ) throws IOException
+    public Account getAccount ( @PathVariable final String accountId ) throws IOException
     {
         final KeyPair pair = KeyPair.fromAccountId( accountId );
 
         final Server server = new Server( "https://horizon-testnet.stellar.org" );
-        final AccountResponse account = server.accounts().account( pair );
+        final AccountResponse accountResponse = server.accounts().account( pair );
+
+        final Account account = new Account();
+        account.setAccountId( pair.getAccountId() );
 
         logger.info( "Balances for account {}", pair.getAccountId() );
-        for ( final AccountResponse.Balance balance : account.getBalances() )
+        final List<Account.Balance> accountBalances = new ArrayList<>();
+        for ( final AccountResponse.Balance balance : accountResponse.getBalances() )
         {
             logger.info( "Type: {}, Code: {}, Balance: {}",
                          balance.getAssetType(),
                          balance.getAssetCode(),
                          balance.getBalance() );
-        }
 
-        return account.toString();
+            final Account.Balance accountBalance = new Account.Balance( balance.getAssetType(),
+                                                                        balance.getAssetCode(),
+                                                                        null,
+                                                                        balance.getLimit(),
+                                                                        balance.getBalance() );
+            accountBalances.add( accountBalance );
+        }
+        account.setBalances( accountBalances );
+
+        return account;
     }
 }
